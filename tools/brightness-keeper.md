@@ -24,13 +24,4 @@ Required helper:
 brew install m1ddc
 ```
 
-Helpers that failed or are excluded for this machine:
-
-```sh
-brew uninstall brightness ddcctl
-brew uninstall --cask lunar
-```
-
-The `--fallback-keys` option has been removed because repeated synthetic brightness-key events can behave unpredictably.
-
-See `../README.md` for full setup, cleanup, options, and troubleshooting notes.
+See `../README.md` for full setup, options, and troubleshooting notes.

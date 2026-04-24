@@ -108,78 +108,27 @@ Working options for this setup:
 - `--m1ddc-only`: only use `m1ddc`.
 - `--m1ddc-display <indexes>`: `m1ddc` display index, repeatable or comma-separated.
 
-Troubleshooting-only options:
-
-- `--brightness-cli`: use the Homebrew `brightness` CLI.
-- `--brightness-only`: only use the Homebrew `brightness` CLI.
-- `--brightness-display <indexes>`: `brightness` display index, repeatable or comma-separated.
-- `--ddcctl`: use `ddcctl`.
-- `--ddcctl-only`: only use `ddcctl`.
-- `--ddcctl-display <indexes>`: `ddcctl` display index, repeatable or comma-separated.
-- `--lunar`: use Lunar CLI.
-- `--lunar-only`: only use Lunar CLI.
-- `--lunar-display <selector>`: Lunar display selector. Default: `Built-in`.
-
-The old `--fallback-keys` option has been removed. It sent repeated synthetic brightness-up key events and behaved unpredictably.
-
-## Cleanup
+## Local Dependencies
 
 Only this helper is needed for the confirmed working setup:
 
-```text
-m1ddc
-```
-
-These helpers were tested and should not be kept for this setup:
-
-```text
-brightness
-ddcctl
-lunar
-```
-
-Remove them with:
-
 ```sh
-brew uninstall brightness ddcctl
-brew uninstall --cask lunar
+brew install m1ddc
 ```
 
 Confirm the final helper state:
 
 ```sh
 brew list --formula | grep '^m1ddc$'
-brew list --formula | grep -E '^(brightness|ddcctl)$' || true
-brew list --cask | grep '^lunar$' || true
 ```
 
 ## Privacy And Network Access
 
-The final working setup does not require Lunar or any full app helper. The built-in display is controlled locally through Apple DisplayServices APIs, and the LG display is controlled locally through `m1ddc`.
+The final working setup does not require any full app helper. The built-in display is controlled locally through Apple DisplayServices APIs, and the LG display is controlled locally through `m1ddc`.
 
 `m1ddc` is a small command-line DDC/CI tool. It does not need network access for brightness control.
 
-Lunar was tested and worked, but it is not used in the final setup because the app may perform unrelated outbound requests for crash reporting, licensing, updates, and other app features. That does not fit this project's privacy requirement.
-
-## What Failed Here
-
-`ddcctl` detected the LG displays but failed before controlling them:
-
-```text
-Failed to parse WindowServer's preferences! (/Library/Preferences/com.apple.windowserver.plist)
-Failed to acquire framebuffer device for display
-```
-
-On this macOS install, `/Library/Preferences/com.apple.windowserver.plist` is not present; the current display preferences are stored under `/Library/Preferences/com.apple.windowserver.displays.plist`. That makes `ddcctl` unsuitable here.
-
-The Homebrew `brightness` CLI detected the built-in display but could not read its brightness:
-
-```text
-display 1: active, awake, online, built-in, ID 0x1
-brightness: failed to get brightness of display 0x1 (error -536870201)
-```
-
-Lunar controlled the built-in display, but it is a full app with possible outbound network behavior, so it is excluded from the final setup.
+The tool does not make network requests. It calls local macOS display APIs and, when requested, executes the local `m1ddc` binary.
 
 ## How It Works
 
@@ -214,6 +163,3 @@ tools/brightness-keeper.md           Short usage notes
 - `m1ddc`: https://github.com/waydabber/m1ddc
 - Apple Support, "Change your Mac display's brightness": https://support.apple.com/guide/mac-help/mchlp2704/mac
 - Apple DisplayServices usage background: https://stackoverflow.com/questions/65150131/iodisplayconnect-is-gone-in-big-sur-of-apple-silicon-what-is-the-replacement
-- `brightness`: https://github.com/nriley/brightness
-- `ddcctl`: https://github.com/kfix/ddcctl
-- Lunar: https://lunar.fyi/

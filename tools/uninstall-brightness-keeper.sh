@@ -1,10 +1,11 @@
 #!/usr/bin/env zsh
 set -euo pipefail
 
-LABEL="com.convergence.brightness-keeper"
-PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+LABELS=("com.brightness-keeper" "com.convergence.brightness-keeper")
 
-launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null || true
-rm -f "$PLIST"
-
-echo "Removed $LABEL"
+for label in "${LABELS[@]}"; do
+  plist="$HOME/Library/LaunchAgents/$label.plist"
+  launchctl bootout "gui/$(id -u)" "$plist" 2>/dev/null || true
+  rm -f "$plist"
+  echo "Removed $label"
+done

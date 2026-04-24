@@ -1,70 +1,68 @@
 # Brightness Keeper
 
-Brightness Keeper is a small macOS utility for forcing display brightness back to a chosen level. It was created during this session as a standalone repo at:
+Brightness Keeper is a small macOS utility that keeps selected displays at a target brightness. It was built for a MacBook Pro plus LG external display setup where macOS did not reliably keep brightness at 100%.
 
-```text
-/tmp/brightness-keeper-repo
-```
+The final working setup for this machine is:
 
-The requested final location is:
+- Built-in MacBook Pro display: local Apple `DisplayServices.framework` call
+- LG external display: `m1ddc`
 
-```text
-/Users/marckraw/Projects/Private/brightness-keeper
-```
-
-This Codex session could not create that directory directly because the sandbox rejected writes to `/Users/marckraw/Projects/Private` with `Operation not permitted`. Move the repo there from a normal Terminal session:
+The known-good command is:
 
 ```sh
-mv /tmp/brightness-keeper-repo /Users/marckraw/Projects/Private/brightness-keeper
+./tools/brightness-keeper --level 100 --display-services --m1ddc --m1ddc-display 1
 ```
 
-The Git branch is initialized as `master`.
+## Fresh Setup
 
-## Why This Exists
+Clone the repo, then install the only required helper:
 
-macOS sometimes does not leave displays at the brightness level you expect, especially when automatic brightness, True Tone, external display control, docks, or monitor firmware are involved. This utility gives you two practical modes:
+```sh
+brew install m1ddc
+```
 
-- Run once and force the brightness target now.
-- Keep running and re-apply the target every few seconds.
+Test the external LG display directly:
 
-It is intended as a pragmatic local tool, not a polished app.
+```sh
+m1ddc display 1 set luminance 100
+```
+
+Test the built-in display directly through Brightness Keeper:
+
+```sh
+./tools/brightness-keeper --level 100 --display-services-only
+```
+
+If both commands work, test the combined command:
+
+```sh
+./tools/brightness-keeper --level 100 --display-services --m1ddc --m1ddc-display 1
+```
+
+If you have two external LG displays:
+
+```sh
+./tools/brightness-keeper --level 100 --display-services --m1ddc --m1ddc-display 1,2
+```
 
 ## Usage
 
 Run once:
 
 ```sh
-./tools/brightness-keeper --level 100
+./tools/brightness-keeper --level 100 --display-services --m1ddc --m1ddc-display 1
 ```
 
-Keep brightness pinned to 100% every 10 seconds:
+Keep brightness pinned every hour:
 
 ```sh
-./tools/brightness-keeper --level 100 --interval 10
+./tools/brightness-keeper --level 100 --interval 3600 --display-services --m1ddc --m1ddc-display 1
 ```
 
 Use another brightness value:
 
 ```sh
-./tools/brightness-keeper --level 85 --interval 15
-```
-
-Open the Finder-clickable one-shot command:
-
-```sh
-open "tools/Brightness 100.command"
-```
-
-Install as a background LaunchAgent:
-
-```sh
-./tools/install-brightness-keeper.sh 100 10
-```
-
-Uninstall the LaunchAgent:
-
-```sh
-./tools/uninstall-brightness-keeper.sh
+./tools/brightness-keeper --level 85 --display-services --m1ddc --m1ddc-display 1
 ```
 
 Run diagnostics:
@@ -73,45 +71,132 @@ Run diagnostics:
 ./tools/brightness-keeper --diagnose
 ```
 
+Install as a background LaunchAgent after the one-shot command works:
+
+```sh
+./tools/install-brightness-keeper.sh 100 3600 --display-services --m1ddc --m1ddc-display 1
+```
+
+Uninstall the LaunchAgent:
+
+```sh
+./tools/uninstall-brightness-keeper.sh
+```
+
+Open the Finder-clickable one-shot command:
+
+```sh
+open "tools/Brightness 100.command"
+```
+
+## CLI Options
+
+Core options:
+
+- `--level`, `-l`: target brightness. Accepts `0.0-1.0` or `0-100`. Default: `100`.
+- `--interval`, `-i`: re-apply brightness every N seconds. If omitted, runs once.
+- `--once`: run once, even if `--interval` was set earlier.
+- `--diagnose`: print display and helper diagnostics.
+- `--quiet`, `-q`: only print errors.
+- `--help`, `-h`: show usage.
+
+Working options for this setup:
+
+- `--display-services`: set the built-in display with local Apple DisplayServices APIs.
+- `--display-services-only`: only use DisplayServices.
+- `--m1ddc`: set external DDC/CI displays with `m1ddc`.
+- `--m1ddc-only`: only use `m1ddc`.
+- `--m1ddc-display <indexes>`: `m1ddc` display index, repeatable or comma-separated.
+
+Troubleshooting-only options:
+
+- `--brightness-cli`: use the Homebrew `brightness` CLI.
+- `--brightness-only`: only use the Homebrew `brightness` CLI.
+- `--brightness-display <indexes>`: `brightness` display index, repeatable or comma-separated.
+- `--ddcctl`: use `ddcctl`.
+- `--ddcctl-only`: only use `ddcctl`.
+- `--ddcctl-display <indexes>`: `ddcctl` display index, repeatable or comma-separated.
+- `--lunar`: use Lunar CLI.
+- `--lunar-only`: only use Lunar CLI.
+- `--lunar-display <selector>`: Lunar display selector. Default: `Built-in`.
+
+The old `--fallback-keys` option has been removed. It sent repeated synthetic brightness-up key events and behaved unpredictably.
+
+## Cleanup
+
+Only this helper is needed for the confirmed working setup:
+
+```text
+m1ddc
+```
+
+These helpers were tested and should not be kept for this setup:
+
+```text
+brightness
+ddcctl
+lunar
+```
+
+Remove them with:
+
+```sh
+brew uninstall brightness ddcctl
+brew uninstall --cask lunar
+```
+
+Confirm the final helper state:
+
+```sh
+brew list --formula | grep '^m1ddc$'
+brew list --formula | grep -E '^(brightness|ddcctl)$' || true
+brew list --cask | grep '^lunar$' || true
+```
+
+## Privacy And Network Access
+
+The final working setup does not require Lunar or any full app helper. The built-in display is controlled locally through Apple DisplayServices APIs, and the LG display is controlled locally through `m1ddc`.
+
+`m1ddc` is a small command-line DDC/CI tool. It does not need network access for brightness control.
+
+Lunar was tested and worked, but it is not used in the final setup because the app may perform unrelated outbound requests for crash reporting, licensing, updates, and other app features. That does not fit this project's privacy requirement.
+
+## What Failed Here
+
+`ddcctl` detected the LG displays but failed before controlling them:
+
+```text
+Failed to parse WindowServer's preferences! (/Library/Preferences/com.apple.windowserver.plist)
+Failed to acquire framebuffer device for display
+```
+
+On this macOS install, `/Library/Preferences/com.apple.windowserver.plist` is not present; the current display preferences are stored under `/Library/Preferences/com.apple.windowserver.displays.plist`. That makes `ddcctl` unsuitable here.
+
+The Homebrew `brightness` CLI detected the built-in display but could not read its brightness:
+
+```text
+display 1: active, awake, online, built-in, ID 0x1
+brightness: failed to get brightness of display 0x1 (error -536870201)
+```
+
+Lunar controlled the built-in display, but it is a full app with possible outbound network behavior, so it is excluded from the final setup.
+
 ## How It Works
 
 The main implementation is `tools/brightness-keeper.swift`.
 
-It tries direct macOS display control first:
+It can try direct macOS display APIs:
 
+- `DisplayServicesSetBrightness` from Apple's private DisplayServices framework
 - `IODisplaySetFloatParameter` with `kIODisplayBrightnessKey`
-- `CoreDisplay_Display_SetUserBrightness` from Apple’s private CoreDisplay framework
+- `CoreDisplay_Display_SetUserBrightness` from Apple's private CoreDisplay framework
 
-The wrapper script `tools/brightness-keeper` runs the Swift file and redirects Swift/Clang module caches into the temporary directory. That avoids permission problems when the tool runs in restricted shells.
+For this setup, the reliable path is:
 
-For 100% brightness only, the tool can use a fallback:
+- DisplayServices controls the built-in MacBook Pro display locally.
+- `m1ddc` controls LG external monitors over DDC/CI.
 
-```sh
-./tools/brightness-keeper --level 100 --fallback-keys
-```
-
-That fallback sends repeated macOS brightness-up key events through AppleScript/System Events. macOS may ask for Accessibility permission for Terminal or the app that launches it.
-
-The clickable command `tools/Brightness 100.command` uses this fallback automatically.
-
-## Important Limitations
-
-From inside the Codex sandbox, diagnostics reported:
-
-```text
-Active displays: 0
-IODisplayConnect services: 0
-CoreDisplay SetUserBrightness available: true
-```
-
-That means the sandbox could run and validate the CLI, but it could not see the real logged-in display session. Verify hardware brightness from your normal macOS Terminal session.
-
-Some external displays do not accept brightness changes through macOS display APIs. Many non-Apple monitors need DDC/CI control instead. If this utility cannot control an external monitor directly, check:
-
-- Whether the monitor supports DDC/CI.
-- Whether DDC/CI is enabled in the monitor’s on-screen menu.
-- Whether the display is connected through a dock, adapter, or DisplayLink path that blocks or virtualizes monitor control.
-- Whether a dedicated tool such as `ddcctl`, MonitorControl, BetterDisplay, or DisplayLink Manager is needed.
+The shell wrapper `tools/brightness-keeper` runs the Swift file and redirects Swift/Clang module caches into the temporary directory. That avoids permission problems when the tool runs in restricted shells or as a LaunchAgent.
 
 ## Files
 
@@ -124,27 +209,11 @@ tools/uninstall-brightness-keeper.sh LaunchAgent uninstaller
 tools/brightness-keeper.md           Short usage notes
 ```
 
-## Internet References
+## References
 
-These are the references used while deciding how the tool should behave:
-
-- Apple Support, “Change your Mac display’s brightness”: documents manual brightness controls, automatic brightness, and Apple’s note that turning off automatic brightness can affect energy use and display performance.  
-  https://support.apple.com/guide/mac-help/mchlp2704/mac
-
-- Apple Support, “Use True Tone on Mac”: documents that True Tone can adjust display color and intensity based on ambient light, including support details for some external displays.  
-  https://support.apple.com/102147
-
-- `ddcctl` GitHub repository: command-line DDC monitor control for macOS, including external monitor brightness and contrast.  
-  https://github.com/kfix/ddcctl
-
-- MacPorts `ddcctl` page: confirms `ddcctl` as a macOS command-line tool for DDC monitor brightness control.  
-  https://ports.macports.org/port/ddcctl/
-
-- DisplayLink Support, “Brightness and Contrast Control settings”: documents that DisplayLink brightness/contrast control depends on DisplayLink Manager, macOS version, DisplayLink hardware, and a DDC/CI-compliant monitor.  
-  https://support.displaylink.com/knowledgebase/articles/2021015
-
-## Next Improvements
-
-- Add optional `ddcctl` integration for external monitors that do not respond to Apple display APIs.
-- Package this as a `.app` or menu bar app if the CLI proves useful.
-- Add a LaunchAgent mode that uses `--fallback-keys` for 100% setups where direct API control fails.
+- `m1ddc`: https://github.com/waydabber/m1ddc
+- Apple Support, "Change your Mac display's brightness": https://support.apple.com/guide/mac-help/mchlp2704/mac
+- Apple DisplayServices usage background: https://stackoverflow.com/questions/65150131/iodisplayconnect-is-gone-in-big-sur-of-apple-silicon-what-is-the-replacement
+- `brightness`: https://github.com/nriley/brightness
+- `ddcctl`: https://github.com/kfix/ddcctl
+- Lunar: https://lunar.fyi/
